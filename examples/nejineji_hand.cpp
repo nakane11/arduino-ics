@@ -28,6 +28,35 @@ std::vector<int> ids;
 ButtonManager button_manager;
 bool servo_on = false;
 bool button_updated = false;
+bool walking = false;
+
+void servo_task(void *parameter) {
+  while(true) {
+    delay(100);
+  }
+}
+
+void display() {
+  DEBUG_SERIAL.clear();
+  DEBUG_SERIAL.setCursor(0,0);
+  for (size_t i = 0; i < ids.size(); ++i) {
+    DEBUG_SERIAL.printf("%d,", ids[i]);
+  }
+
+  DEBUG_SERIAL.setCursor(0,30);
+  if (servo_on) {
+    DEBUG_SERIAL.println("servo on");
+  } else {
+    DEBUG_SERIAL.println("servo free");
+  }
+
+  DEBUG_SERIAL.setCursor(0,40);
+  if(walking){
+    DEBUG_SERIAL.println("walking start");
+  }else{
+    DEBUG_SERIAL.println("walking stop");
+  }
+}
 
 void setup() {
     DEBUG_SERIAL.begin();
@@ -52,12 +81,11 @@ void setup() {
             }
         }
         for (size_t i = 0; i < ids.size(); ++i) {
-          DEBUG_SERIAL.printf("%d,", ids[i]);
           krs->setSpeed(ids[i], 10);
         }
-        DEBUG_SERIAL.print("\n");
     }
     button_manager.createTask(0);
+    xTaskCreatePinnedToCore(servo_task, "Servo Task", 2048, NULL, 24, NULL, 1);
 }
 
 void loop() {
@@ -67,23 +95,27 @@ void loop() {
     break;
   case 1:
     if (!button_updated) {
-      DEBUG_SERIAL.clear();
-      DEBUG_SERIAL.setCursor(0,0);
       if (servo_on) {
+        walking = false;
         for (size_t i = 0; i < ids.size(); ++i) {
           krs->setServoFree(ids[i]);
         }
-        DEBUG_SERIAL.println("servo free");
       } else {
         for (size_t i = 0; i < ids.size(); ++i) {
           krs->setServoHold(ids[i]);
         }
-        DEBUG_SERIAL.println("servo on");
       }
       servo_on = !servo_on;
       button_updated = true;
     }
     break;
+  case 2:
+    if (!button_updated) {
+      walking = !walking;
+      button_updated = true;
+    }
+    break;
   }
+  display();
   delay(200);
 }
