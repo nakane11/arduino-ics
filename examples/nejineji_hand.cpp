@@ -25,10 +25,9 @@ std::vector<RunningStats> stats_vector;
 const int TIMEOUT = 10;
 IcsHardSerialClass *krs;
 std::vector<int> ids;
-int position;
-char log_msg[50];
-int cnt = 0;
 ButtonManager button_manager;
+bool servo_on = false;
+bool button_updated = false;
 
 void setup() {
     DEBUG_SERIAL.begin();
@@ -54,6 +53,7 @@ void setup() {
         }
         for (size_t i = 0; i < ids.size(); ++i) {
           DEBUG_SERIAL.printf("%d,", ids[i]);
+          krs->setSpeed(ids[i], 10);
         }
         DEBUG_SERIAL.print("\n");
     }
@@ -61,7 +61,29 @@ void setup() {
 }
 
 void loop() {
-  DEBUG_SERIAL.clear();
-  DEBUG_SERIAL.println(button_manager.getButtonState());
-  delay(500);
+  switch (button_manager.getButtonState()) {
+  case 0:
+    button_updated = false;
+    break;
+  case 1:
+    if (!button_updated) {
+      DEBUG_SERIAL.clear();
+      DEBUG_SERIAL.setCursor(0,0);
+      if (servo_on) {
+        for (size_t i = 0; i < ids.size(); ++i) {
+          krs->setServoFree(ids[i]);
+        }
+        DEBUG_SERIAL.println("servo free");
+      } else {
+        for (size_t i = 0; i < ids.size(); ++i) {
+          krs->setServoHold(ids[i]);
+        }
+        DEBUG_SERIAL.println("servo on");
+      }
+      servo_on = !servo_on;
+      button_updated = true;
+    }
+    break;
+  }
+  delay(200);
 }
