@@ -91,26 +91,27 @@ void servo_task(void *parameter) {
       // while (krs->setServoPosition(ids[i], angle_to_position(walk_angle_float[walk_angle_index][rcb4_index[ids[i]]])) == -1) {
       //   vTaskDelay(10);
       // }
-      while (krs->setServoPosition(rcb4_index[i], angle_to_position(walk_angle_float[walk_angle_index][i])) == -1) {
-        vTaskDelay(10);
-      }
-      vTaskDelay(5);
+      krs->setServoPosition(rcb4_index[i], angle_to_position(walk_angle_float[walk_angle_index][i]));
+      // while (krs->setServoPosition(rcb4_index[i], angle_to_position(walk_angle_float[walk_angle_index][i])) == -1) {
+      //   vTaskDelay(10);
+      // }
+      // vTaskDelay(1);
     }
-    // vTaskDelay(800);
+    vTaskDelay(200);
     // 目標位置に達するまで待機
-    bool flag = 1;
-    int timeout_counter = 80;
-    while (flag && timeout_counter > 0) {
-      flag = 0;
-      for (size_t i = 0; i < ids.size(); ++i) {
-        if(abs(krs->getPosition(ids[i]) - angle_to_position(walk_angle_float[walk_angle_index][rcb4_index[ids[i]]])) >= 100) {
-          flag = 1;
-          break;
-        }
-      }
-      vTaskDelay(10 / portTICK_PERIOD_MS);
-      timeout_counter--;
-    }
+    // bool flag = 1;
+    // int timeout_counter = 100;
+    // while (flag && timeout_counter > 0) {
+    //   flag = 0;
+    //   for (size_t i = 0; i < ids.size(); ++i) {
+    //     if(abs(krs->getPosition(ids[i]) - angle_to_position(walk_angle_float[walk_angle_index][rcb4_index[ids[i]]])) >= 100) {
+    //       flag = 1;
+    //       break;
+    //     }
+    //   }
+    //   vTaskDelay(5 / portTICK_PERIOD_MS);
+    //   timeout_counter--;
+    // }
     walk_angle_index++;
     if (walk_angle_index >= NUM_SEQUENCE) {
       walk_angle_index = 0;
@@ -184,10 +185,19 @@ void setup() {
             }
         }
         for (size_t i = 0; i < ids.size(); ++i) {
-          krs->setSpeed(ids[i], 20);
+          DEBUG_SERIAL.printf("%d,", ids[i]);
         }
     }
-    button_manager.createTask(0);
+    for (size_t i = 0; i < ids.size(); ++i) {
+      while (krs->setSpeed(ids[i], 127) == -1) {
+        delay(10);
+      }
+      while (krs->setStretch(ids[i], 30) == -1) {
+        delay(10);
+      }
+      DEBUG_SERIAL.printf("%d ", ids[i]);
+    }
+    button_manager.createTask(1);
     xTaskCreatePinnedToCore(servo_task, "Servo Task", 2048, NULL, 24, NULL, 0);
 }
 
