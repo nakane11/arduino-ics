@@ -273,27 +273,90 @@ void servo_on(bool on) {
 }
 
 void display() {
-  DEBUG_SERIAL.clear();
-  DEBUG_SERIAL.setCursor(0,0);
-  for (size_t i = 0; i < ids.size(); ++i) {
-    DEBUG_SERIAL.printf("%d,", ids[i]);
-  }
+ float temperatures[19];
+  float max_temp = 0;
+  int max_temp_id = -1;
 
-  DEBUG_SERIAL.setCursor(0,30);
-  if (servo_on_state) {
-    DEBUG_SERIAL.println("servo on");
-  } else {
-    DEBUG_SERIAL.println("servo free");
-  }
+  for (size_t i = 0; i < 19; ++i) {
+    float current_temp = krs->getTemperatureInCelsius(ids[i]); // サーボから温度を取得
+    temperatures[i] = current_temp;
 
-  DEBUG_SERIAL.setCursor(0,40);
-  if(walking){
-    DEBUG_SERIAL.println("walking start");
-    for (size_t i = 0; i < ids.size(); ++i) {
-      DEBUG_SERIAL.printf("%d: %d\n", rcb4_index[i], angle_to_position(walk_angle_float[walk_angle_index][ids[i]]));
+    if (current_temp > max_temp) {
+      max_temp = current_temp;
+      max_temp_id = ids[i];
     }
-  }else{
-    DEBUG_SERIAL.println("walking stop");
+  }
+
+  DEBUG_SERIAL.fillScreen(TFT_BLACK); // 画面を黒で塗りつぶし
+  DEBUG_SERIAL.setTextColor(TFT_WHITE);
+
+  DEBUG_SERIAL.setCursor(0,0);
+  DEBUG_SERIAL.setTextSize(1.5);
+  DEBUG_SERIAL.printf("MAX:%2.1fC\n", max_temp);
+  DEBUG_SERIAL.setTextSize(1);
+  // --- 2-2. サーモグラフィ風に温度を色で表示 ---
+  int grid_size = 15; // 1マスのサイズ
+  int padding = 2;   // マス間の余白
+  int start_y = 15;  // 表示開始Y座標
+
+  for (size_t i = 0; i < 19; ++i) {
+    auto it = std::find(ids.begin(), ids.end(), i);
+    if (it != ids.end()) {
+      int col = i % 7;
+      int row = i / 7;
+      int x = 0 + col * (grid_size + padding);
+      int y = start_y + row * (grid_size + padding);
+
+      // 温度に応じて色を決定
+      uint16_t back_color = TFT_BLUE; // 60℃以下
+      if (temperatures[i] > 65) {      // 81℃以上
+        back_color = TFT_RED;
+      } else if (temperatures[i] > 55) { // 71℃～80℃
+        back_color = TFT_ORANGE;
+      } else if (temperatures[i] > 45) { // 61℃～70℃
+        back_color = TFT_YELLOW;
+      }
+
+      DEBUG_SERIAL.fillRect(x, y, grid_size, grid_size, back_color);
+
+      // マスの中にサーボIDを表示
+      uint16_t text_color;
+      if (back_color == TFT_YELLOW || back_color == TFT_ORANGE) {
+        text_color = TFT_BLACK; // 背景が黄色なら、文字は黒
+      } else {
+        text_color = TFT_WHITE; // それ以外の背景なら、文字は白
+      }
+      DEBUG_SERIAL.setTextColor(text_color);
+      DEBUG_SERIAL.setTextSize(1);
+      DEBUG_SERIAL.setCursor(x + ((ids[i] < 10) ? 7 : 3), y + 5); // IDの桁数で位置調整
+      DEBUG_SERIAL.print(ids[i]);
+    }
+  }
+
+  DEBUG_SERIAL.setTextSize(1.5);
+  DEBUG_SERIAL.setCursor(0, 70);
+  DEBUG_SERIAL.setTextColor(TFT_WHITE); // まず文字色を白に設定
+  DEBUG_SERIAL.print("servo: ");        // ラベル部分を改行なしで描画
+
+  if (servo_on_state) {
+    DEBUG_SERIAL.setTextColor(TFT_GREEN); // 状態部分の色を緑に設定
+    DEBUG_SERIAL.println("on");           // 状態を描画して改行
+  } else {
+    DEBUG_SERIAL.setTextColor(TFT_RED);   // 状態部分の色を赤に設定
+    DEBUG_SERIAL.println("free");         // 状態を描画して改行
+  }
+
+  // --- 歩行状態の表示 ---
+  DEBUG_SERIAL.setCursor(0, 85);
+  DEBUG_SERIAL.setTextColor(TFT_WHITE); // こちらも、まず文字色を白に設定
+  DEBUG_SERIAL.print("walking: ");      // ラベル部分を改行なしで描画
+
+  if (walking) {
+    DEBUG_SERIAL.setTextColor(TFT_GREEN); // 状態部分の色を緑に設定
+    DEBUG_SERIAL.println("start");        // 状態を描画して改行
+  } else {
+    DEBUG_SERIAL.setTextColor(TFT_RED);   // 状態部分の色を赤に設定
+    DEBUG_SERIAL.println("stop");         // 状態を描画して改行
   }
 }
 
